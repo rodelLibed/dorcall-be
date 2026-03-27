@@ -1,10 +1,13 @@
 import { Sequelize } from 'sequelize-typescript';
 import dotenv from 'dotenv';
-import User from '../models/User';
-import Agent from '../models/Agent';
+import Admin from '../models/Admin';
 import CallLog from '../models/CallLog';
 import SmsLog from '../models/SmsLog';
 import CustomerContact from '../models/CustomerContact';
+import PsEndpoint from '../models/PsEndpoint';
+import PsAuth from '../models/PsAuth';
+import PsAor from '../models/PsAor';
+import { setupAssociations } from '../models/associations';
 
 dotenv.config();
 
@@ -16,7 +19,7 @@ const sequelize = new Sequelize({
   port: parseInt(process.env.DB_PORT || '3306'),
   dialect: 'mysql',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  models: [User, Agent, CallLog, SmsLog, CustomerContact],
+  models: [Admin, CallLog, SmsLog, CustomerContact, PsEndpoint, PsAuth, PsAor],
   pool: {
     max: 10,
     min: 0,
@@ -29,6 +32,9 @@ export const connectDatabase = async (): Promise<void> => {
   try {
     await sequelize.authenticate();
     console.log('✅ Database connected successfully');
+
+    // Setup model associations
+    setupAssociations();
     
     // Sync models (use alter or force based on environment)
     if (process.env.NODE_ENV === 'development') {

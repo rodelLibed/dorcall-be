@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import User from '../models/User';
-import Agent from '../models/Agent';
+import Admin from '../models/Admin';
+import PsAuth from '../models/PsAuth';
 
 interface DecodedToken {
   id: number;
@@ -11,7 +11,7 @@ interface DecodedToken {
 }
 
 export interface AuthRequest extends Request {
-  user?: User | Agent;
+  user?: Admin | PsAuth;
   userId?: number;
   userRole?: string;
 }
@@ -41,9 +41,9 @@ export const authMiddleware = async (
     // Find user based on role
     let user;
     if (decoded.role === 'admin') {
-      user = await User.findByPk(decoded.id);
+      user = await Admin.findByPk(decoded.id);
     } else {
-      user = await Agent.findByPk(decoded.id);
+      user = await PsAuth.findOne({ where: { id: decoded.id } });
     }
 
     if (!user) {

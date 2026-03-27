@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import bcrypt from 'bcryptjs';
-import Agent from '../models/Agent';
-import User from '../models/User';
+import PsEndpoint from '../models/PsEndpoint';
+import PsAuth from '../models/PsAuth';
+import PsAor from '../models/PsAor';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // @desc    Get all agents
@@ -9,8 +9,8 @@ import { AuthRequest } from '../middleware/authMiddleware';
 // @access  Private/Admin
 export const getAllAgents = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const agents = await Agent.findAll({
-      attributes: { exclude: ['sipPassword'] }
+    const agents = await PsAuth.findAll({
+      attributes: { exclude: ['password'] }
     });
 
     res.json({
@@ -24,15 +24,16 @@ export const getAllAgents = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// @desc    Get agent by ID
+// @desc    Get agent by ID (extension)
 // @route   GET /api/agents/:id
 // @access  Private
 export const getAgentById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
-    const agent = await Agent.findByPk(id, {
-      attributes: { exclude: ['sipPassword'] }
+    const agent = await PsAuth.findOne({
+      where: { id },
+      attributes: { exclude: ['password'] }
     });
 
     if (!agent) {
@@ -55,60 +56,50 @@ export const getAgentById = async (req: AuthRequest, res: Response): Promise<voi
 // @access  Private/Admin
 export const createAgent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { fullName, email, password, sipExtension, sipPassword, sipDomain, status } = req.body;
+    const { username, sipExtension, sipPassword } = req.body;
 
     // Validate input
-    if (!fullName || !email || !password || !sipExtension || !sipPassword) {
-      res.status(400).json({ success: false, message: 'Please provide all required fields' });
+    if (!username || !sipExtension || !sipPassword) {
+      res.status(400).json({ success: false, message: 'Please provide username, sipExtension and sipPassword' });
       return;
     }
 
-    // Check if email already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      res.status(400).json({ success: false, message: 'Email already in use' });
+    // Check if PJSIP records already exist for this extension
+    const existingPsAuth = await PsAuth.findOne({ where: { id: sipExtension } });
+    if (existingPsAuth) {
+      res.status(400).json({ success: false, message: 'Extension already in use' });
       return;
     }
 
-    // Check if extension already exists
-    const existingAgent = await Agent.findOne({ where: { sipExtension } });
-    if (existingAgent) {
-      res.status(400).json({ success: false, message: 'SIP extension already in use' });
-      return;
-    }
-
-    // Hash password for user account
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user account for login
-    const user = await User.create({
-      name: fullName,
-      email,
-      password: hashedPassword,
-      role: 'agent'
+    // Create PJSIP records with sipExtension as the id (e.g. "1001")
+    const psAuth = await PsAuth.create({
+      id: sipExtension,
+      authType: 'userpass',
+      username: username,
+      password: sipPassword
     });
 
-    // Create agent record for SIP
-    const agent = await Agent.create({
-      fullName,
-      sipExtension,
-      sipPassword,
-      sipDomain,
-      status: status || 'offline'
+    await PsAor.create({
+      id: sipExtension,
+      maxContacts: '1'
     });
 
-    // Remove passwords from response
-    (agent as any).sipPassword = undefined;
+    await PsEndpoint.create({
+      id: sipExtension,
+      transport: 'transport-udp',
+      context: 'from-internal',
+      disallow: 'all',
+      allow: 'ulaw,alaw',
+      auth: sipExtension,
+      aors: sipExtension
+    });
 
     res.status(201).json({
       success: true,
       message: 'Agent created successfully',
-      agent,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
+      agent: {
+        id: psAuth.id,
+        username: psAuth.username
       }
     });
   } catch (error: any) {
@@ -123,31 +114,30 @@ export const createAgent = async (req: AuthRequest, res: Response): Promise<void
 export const updateAgent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { fullName, sipExtension, sipPassword, sipDomain, status } = req.body;
+    const { sipPassword } = req.body;
 
-    const agent = await Agent.findByPk(id);
+    const psAuth = await PsAuth.findOne({ where: { id } });
 
-    if (!agent) {
+    if (!psAuth) {
       res.status(404).json({ success: false, message: 'Agent not found' });
       return;
     }
 
-    // Update fields
-    if (fullName) agent.fullName = fullName;
-    if (sipExtension) agent.sipExtension = sipExtension;
-    if (sipPassword) agent.sipPassword = sipPassword;
-    if (sipDomain !== undefined) agent.sipDomain = sipDomain;
-    if (status) agent.status = status;
-
-    await agent.save();
-
-    // Remove password from response
-    (agent as any).sipPassword = undefined;
+    // Update password if provided
+    if (sipPassword) {
+      await PsAuth.update(
+        { password: sipPassword },
+        { where: { id } }
+      );
+    }
 
     res.json({
       success: true,
       message: 'Agent updated successfully',
-      agent
+      agent: {
+        id: psAuth.id,
+        username: psAuth.username
+      }
     });
   } catch (error: any) {
     console.error('Update agent error:', error);
@@ -162,14 +152,17 @@ export const deleteAgent = async (req: AuthRequest, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    const agent = await Agent.findByPk(id);
+    const psAuth = await PsAuth.findOne({ where: { id } });
 
-    if (!agent) {
+    if (!psAuth) {
       res.status(404).json({ success: false, message: 'Agent not found' });
       return;
     }
 
-    await agent.destroy();
+    // Delete all PJSIP records
+    await PsEndpoint.destroy({ where: { id } });
+    await PsAuth.destroy({ where: { id } });
+    await PsAor.destroy({ where: { id } });
 
     res.json({
       success: true,
@@ -194,23 +187,20 @@ export const updateAgentStatus = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    const agent = await Agent.findByPk(id);
+    const psAuth = await PsAuth.findOne({ where: { id } });
 
-    if (!agent) {
+    if (!psAuth) {
       res.status(404).json({ success: false, message: 'Agent not found' });
       return;
     }
-
-    agent.status = status;
-    await agent.save();
 
     res.json({
       success: true,
       message: 'Agent status updated successfully',
       agent: {
-        id: agent.id,
-        fullName: agent.fullName,
-        status: agent.status
+        id: psAuth.id,
+        username: psAuth.username,
+        status
       }
     });
   } catch (error: any) {
