@@ -14,50 +14,6 @@ export const initializeWebSocket = (socketServer: SocketIOServer): void => {
       console.log(`Agent ${agentId} joined their room`);
     });
 
-    // Join admin room
-    socket.on('join_admin_room', (adminId: number) => {
-      socket.join(`admin_${adminId}`);
-      console.log(`Admin ${adminId} joined their room`);
-    });
-
-    // Handle incoming call event
-    socket.on('incoming_call', (data: any) => {
-      console.log('Incoming call:', data);
-      // Broadcast to specific agent
-      io.to(`agent_${data.agentId}`).emit('incoming_call', data);
-    });
-
-    // Handle call started event
-    socket.on('call_started', (data: any) => {
-      console.log('Call started:', data);
-      // Broadcast to all admins
-      io.emit('call_started', data);
-    });
-
-    // Handle call ended event
-    socket.on('call_ended', (data: any) => {
-      console.log('Call ended:', data);
-      io.emit('call_ended', data);
-    });
-
-    // Handle agent status change
-    socket.on('agent_status', (data: any) => {
-      console.log('Agent status changed:', data);
-      io.emit('agent_status_changed', data);
-    });
-
-    // Handle SMS received
-    socket.on('sms_received', (data: any) => {
-      console.log('SMS received:', data);
-      io.to(`agent_${data.agentId}`).emit('sms_received', data);
-    });
-
-    // Send message
-    socket.on('send_message', (data: any) => {
-      console.log('Message sent:', data);
-      io .emit('chat_message', data);
-    });
-
     socket.on('disconnect', () => {
       console.log(`❌ Client disconnected: ${socket.id}`);
     });
@@ -71,13 +27,21 @@ export const getIO = (): SocketIOServer => {
   return io;
 };
 
-export const emitToAgent = (agentId: number, event: string, data: any): void => {
+export const emitToAgent = (
+  agentId: number,
+  event: string,
+  data: any
+): void => {
   if (io) {
     io.to(`agent_${agentId}`).emit(event, data);
   }
 };
 
-export const emitToAdmin = (adminId: number, event: string, data: any): void => {
+export const emitToAdmin = (
+  adminId: number,
+  event: string,
+  data: any
+): void => {
   if (io) {
     io.to(`admin_${adminId}`).emit(event, data);
   }
