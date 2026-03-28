@@ -5,7 +5,8 @@ import {
   createAgent,
   updateAgent,
   deleteAgent,
-  updateAgentStatus
+  updateAgentStatus,
+  getSipConfig
 } from '../controllers/agentController';
 import { authMiddleware, adminOnly } from '../middleware/authMiddleware';
 
@@ -14,6 +15,7 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
+router.get('/sip-config', getSipConfig);
 router.get('/', getAllAgents);
 router.get('/:id', getAgentById);
 router.post('/', adminOnly, createAgent);

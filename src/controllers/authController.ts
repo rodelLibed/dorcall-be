@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import Admin from '../models/Admin';
 import PsAuth from '../models/PsAuth';
+import PsEndpoint from '../models/PsEndpoint';
+import PsAor from '../models/PsAor';
 import { generateToken } from '../utilities/generateToken';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -84,6 +86,10 @@ export const agentLogin = async (req: Request, res: Response): Promise<void> => 
     // Generate token
     const token = generateToken({ id: psAuth.columnId, role: 'agent' });
 
+    // Fetch related PJSIP records
+    const psEndpoint = await PsEndpoint.findOne({ where: { id: psAuth.id } });
+    const psAor = await PsAor.findOne({ where: { id: psAuth.id } });
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -91,7 +97,27 @@ export const agentLogin = async (req: Request, res: Response): Promise<void> => 
       user: {
         id: psAuth.id,
         username: psAuth.username,
-        role: 'agent'
+        role: 'agent',
+        sipData: {
+          psAuth: {
+            id: psAuth.id,
+            authType: psAuth.authType,
+            username: psAuth.username,
+          },
+          psEndpoint: psEndpoint ? {
+            id: psEndpoint.id,
+            transport: psEndpoint.transport,
+            context: psEndpoint.context,
+            disallow: psEndpoint.disallow,
+            allow: psEndpoint.allow,
+            auth: psEndpoint.auth,
+            aors: psEndpoint.aors,
+          } : null,
+          psAor: psAor ? {
+            id: psAor.id,
+            maxContacts: psAor.maxContacts,
+          } : null,
+        }
       }
     });
   } catch (error: any) {

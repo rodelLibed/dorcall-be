@@ -37,13 +37,16 @@ export const authMiddleware = async (
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as DecodedToken;
+    console.log('🔑 Token decoded:', { id: decoded.id, role: decoded.role });
 
     // Find user based on role
     let user;
     if (decoded.role === 'admin') {
       user = await Admin.findByPk(decoded.id);
     } else {
-      user = await PsAuth.findOne({ where: { id: decoded.id } });
+      // Token stores columnId (primary key), not the SIP extension (id)
+      user = await PsAuth.findByPk(decoded.id);
+      console.log('🔍 PsAuth.findByPk result:', user ? `found (id=${user.id})` : 'NOT FOUND');
     }
 
     if (!user) {
