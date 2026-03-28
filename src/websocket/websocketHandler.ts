@@ -97,13 +97,21 @@ export const getIO = (): SocketIOServer => {
   return io;
 };
 
-export const emitToAgent = (agentId: number, event: string, data: any): void => {
+export const emitToAgent = (
+  agentId: number,
+  event: string,
+  data: any
+): void => {
   if (io) {
     io.to(`agent_${agentId}`).emit(event, data);
   }
 };
 
-export const emitToAdmin = (adminId: number, event: string, data: any): void => {
+export const emitToAdmin = (
+  adminId: number,
+  event: string,
+  data: any
+): void => {
   if (io) {
     io.to(`admin_${adminId}`).emit(event, data);
   }
