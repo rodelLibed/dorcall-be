@@ -1,10 +1,18 @@
-// import AmiClient from 'asterisk-ami-client'; // Install separately: npm i asterisk-ami-client
+// To enable AMI: npm install asterisk-ami-client
+// import AmiClient from 'asterisk-ami-client';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// let amiClient: AmiClient | null = null;
 let amiClient: any = null;
+
+// Asterisk WebSocket/WebRTC connection details (used by frontend via /api/agents/sip-config)
+// Set these in your .env file:
+//   ASTERISK_WS_URL=wss://your-asterisk-ip:8089/ws
+//   ASTERISK_SIP_DOMAIN=your-asterisk-ip
+//   TURN_URL=turn:your-turn-server:3478
+//   TURN_USERNAME=user
+//   TURN_CREDENTIAL=pass
 
 export const connectAMI = async (): Promise<void> => {
   console.log('ℹ️  Asterisk AMI integration is optional (currently disabled)');

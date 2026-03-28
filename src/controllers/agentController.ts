@@ -208,3 +208,44 @@ export const updateAgentStatus = async (req: AuthRequest, res: Response): Promis
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+
+// @desc    Get SIP/WebRTC config for an agent
+// @route   GET /api/agents/sip-config
+// @access  Private (agent only)
+export const getSipConfig = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (req.userRole !== 'agent') {
+      res.status(401).json({ success: false, message: 'Not authenticated as agent' });
+      return;
+    }
+
+    const psAuth = await PsAuth.findByPk(req.userId);
+
+    if (!psAuth) {
+      res.status(404).json({ success: false, message: 'Agent SIP credentials not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      sipConfig: {
+        wsServer: process.env.ASTERISK_WS_URL || 'wss://localhost:8089/ws',
+        sipDomain: process.env.ASTERISK_SIP_DOMAIN || 'localhost',
+        extension: psAuth.id,
+        username: psAuth.username,
+        password: psAuth.password,
+        // stunServers: process.env.STUN_URL
+        //   ? [{ urls: process.env.STUN_URL }]
+        //   : [],
+        // turnServers: process.env.TURN_URL ? [{
+        //   urls: process.env.TURN_URL,
+        //   username: process.env.TURN_USERNAME || '',
+        //   credential: process.env.TURN_CREDENTIAL || ''
+        // }] : []
+      }
+    });
+  } catch (error: any) {
+    console.error('Get SIP config error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};

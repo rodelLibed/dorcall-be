@@ -55,7 +55,33 @@ export const initializeWebSocket = (socketServer: SocketIOServer): void => {
     // Send message
     socket.on('send_message', (data: any) => {
       console.log('Message sent:', data);
-      io .emit('chat_message', data);
+      io.emit('chat_message', data);
+    });
+
+    // WebRTC / SIP events
+    socket.on('agent_registered', (data: any) => {
+      console.log('Agent SIP registered:', data);
+      io.emit('agent_sip_status', { agentId: data.agentId, registered: true });
+    });
+
+    socket.on('agent_unregistered', (data: any) => {
+      console.log('Agent SIP unregistered:', data);
+      io.emit('agent_sip_status', { agentId: data.agentId, registered: false });
+    });
+
+    socket.on('call_ringing', (data: any) => {
+      console.log('Call ringing:', data);
+      io.emit('call_ringing', data);
+    });
+
+    socket.on('call_answered', (data: any) => {
+      console.log('Call answered:', data);
+      io.emit('call_answered', data);
+    });
+
+    socket.on('call_held', (data: any) => {
+      console.log('Call held:', data);
+      io.emit('call_held', data);
     });
 
     socket.on('disconnect', () => {
