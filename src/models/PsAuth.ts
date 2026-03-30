@@ -1,14 +1,21 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt } from 'sequelize-typescript';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+} from 'sequelize-typescript';
 
 @Table({
   tableName: 'psAuths',
-  timestamps: true
+  timestamps: true,
 })
 export default class PsAuth extends Model {
   @Column({
     type: DataType.STRING,
     allowNull: false,
-    unique: true
+    unique: true,
   })
   id!: string;
 
@@ -16,28 +23,35 @@ export default class PsAuth extends Model {
     type: DataType.BIGINT,
     allowNull: false,
     autoIncrement: true,
-    primaryKey: true
+    primaryKey: true,
   })
   columnId!: number;
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
-    field: 'auth_type'
+    field: 'auth_type',
   })
   authType!: string;
 
   @Column({
     type: DataType.STRING,
-    allowNull: false
+    allowNull: false,
   })
   username!: string;
 
   @Column({
     type: DataType.STRING,
-    allowNull: false
+    allowNull: false,
   })
   password!: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true, // ← nullable, Asterisk defaults to 'asterisk' if empty
+    defaultValue: 'asterisk',
+  })
+  realm!: string;
 
   @CreatedAt
   @Column({ type: DataType.DATE })
