@@ -1,6 +1,7 @@
 import AmiClient from 'asterisk-ami-client';
 import { Server } from 'socket.io';
 import config from './amiConfig';
+import CallLog, { CallStatus, CallType } from './models/CallLog';
 
 type OriginateParams = {
   agent: string;
@@ -34,6 +35,20 @@ class AmiService {
       this.connected = true;
       console.log('✅ AMI Connected');
 
+      // ====== START ADDITION: Call logging tracker ======
+      const callTracker: Record<
+        string,
+        {
+          uniqueId: string;
+          agent: string;
+          customer: string;
+          startTime: Date;
+          answerTime?: Date;
+          status?: CallStatus;
+        }
+      > = {};
+      // ====== END ADDITION ======
+
       // DEBUG: log all events (optional)
       this.client.on('event', (event) => {
         // console.log('📡 AMI Event:', event);
@@ -50,6 +65,46 @@ class AmiService {
         );
         this.activeCalls[agent] = DestChannel;
         console.log('this.activeCalls:', this.activeCalls);
+
+        // ====== START ADDITION: Log outbound call start ======
+        (async () => {
+          try {
+            const uniqueId = event.Uniqueid;
+            const customer =
+              event.Exten ||
+              event.DestCallerIDNum ||
+              event.ConnectedLineNum ||
+              'unknown';
+            const agentNum = event.CallerIDNum;
+
+            if (uniqueId) {
+              callTracker[uniqueId] = {
+                uniqueId,
+                agent: agentNum,
+                customer,
+                startTime: new Date(),
+                status: CallStatus.FAILED,
+              };
+
+              await CallLog.create({
+                uniqueId,
+                agentNumber: agentNum,
+                customerNumber: customer,
+                callType: CallType.OUTBOUND,
+                callStatus: CallStatus.FAILED,
+                answerTime: null,
+                endTime: null,
+                duration: null,
+                sipExtension: agentNum,
+              });
+
+              console.log('📝 CallLog created:', uniqueId);
+            }
+          } catch (err) {
+            console.error('❌ DialBegin Log Error:', err);
+          }
+        })();
+        // ====== END ADDITION ======
       });
 
       // Clean up activeCalls on hangup
@@ -59,13 +114,6 @@ class AmiService {
         // Remove from active calls if it's an agent
         if (CallerIDName?.startsWith('Node-')) {
           const agent = CallerIDName.replace('Node-', '');
-          // Emit event to frontend (optional)
-          // const roomId = agent; // adjust as needed
-          // console.log('roomId : >>> ', roomId);
-          // this.io?.to(roomId).emit('receiveCallStats', {
-          //   status: 'ended',
-          //   event,
-          // });
           delete this.activeCalls[agent];
           console.log(`📴 Call ended for agent ${agent}, channel ${Channel}`);
         }
@@ -75,7 +123,40 @@ class AmiService {
           status: 'ended',
           event,
         });
+
+        // ====== START ADDITION: Finalize call log on hangup ======
+        (async () => {
+          try {
+            const uniqueId = event.Uniqueid;
+            const tracker = callTracker[uniqueId];
+
+            if (tracker) {
+              const endTime = new Date();
+              const duration = tracker.answerTime
+                ? Math.floor(
+                    (endTime.getTime() - tracker.answerTime.getTime()) / 1000
+                  )
+                : 0;
+
+              await CallLog.update(
+                {
+                  endTime,
+                  duration,
+                  callStatus: tracker.status || CallStatus.FAILED,
+                },
+                { where: { uniqueId } }
+              );
+
+              delete callTracker[uniqueId];
+              console.log('📴 Call finalized:', uniqueId);
+            }
+          } catch (err) {
+            console.error('❌ Hangup Log Error:', err);
+          }
+        })();
+        // ====== END ADDITION ======
       });
+
       this.client.on('DialEnd', (event: any) => {
         const { Channel, DestChannel, DialStatus } = event;
 
@@ -92,6 +173,48 @@ class AmiService {
             });
           }
         }
+
+        // ====== START ADDITION: Update call log on answer ======
+        (async () => {
+          try {
+            const uniqueId = event.Uniqueid;
+            const tracker = callTracker[uniqueId];
+
+            if (tracker) {
+              if (DialStatus === 'ANSWER') {
+                tracker.answerTime = new Date();
+                tracker.status = CallStatus.ANSWERED;
+
+                await CallLog.update(
+                  {
+                    callStatus: CallStatus.ANSWERED,
+                    answerTime: tracker.answerTime,
+                  },
+                  { where: { uniqueId } }
+                );
+
+                console.log('✅ Call answered:', uniqueId);
+              } else if (DialStatus === 'BUSY') {
+                tracker.status = CallStatus.BUSY;
+
+                await CallLog.update(
+                  { callStatus: CallStatus.BUSY },
+                  { where: { uniqueId } }
+                );
+              } else {
+                tracker.status = CallStatus.FAILED;
+
+                await CallLog.update(
+                  { callStatus: CallStatus.FAILED },
+                  { where: { uniqueId } }
+                );
+              }
+            }
+          } catch (err) {
+            console.error('❌ DialEnd Log Error:', err);
+          }
+        })();
+        // ====== END ADDITION ======
       });
     } catch (err) {
       console.error('❌ AMI Connection Error:', err);
