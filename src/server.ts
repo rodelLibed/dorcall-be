@@ -5,6 +5,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDatabase } from './config/database';
+import { connectAMI } from './amiServicesv2';
+import { setupAMISocket } from './ami.ws';
 
 // Import routes
 import authRoutes from './routes/authRoutes';
@@ -34,6 +36,9 @@ app.set('io', io);
 
 callSocketHandler(io);
 amiServices.setSocket(io);
+
+connectAMI();
+setupAMISocket(io);
 
 // Middleware
 app.use(

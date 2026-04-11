@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import amiService from '../amiServices'; // ✅ FIXED import
 import { callNumber, hangup } from '../gsmService';
+import { originateCall } from '../amiServicesv2';
 
 // export const outboundCall = async (req: AuthRequest, res: Response) => {
 //   try {
@@ -38,7 +39,7 @@ import { callNumber, hangup } from '../gsmService';
 
 export const outboundCall = async (req: Request, res: Response) => {
   try {
-    const { target } = req.body;
+    const { target, agentExt } = req.body;
     console.log(req.body);
 
     if (!target) {
@@ -48,9 +49,8 @@ export const outboundCall = async (req: Request, res: Response) => {
       });
     }
 
-    // Directly call the GSM
-    callNumber(target);
-
+    // Put her the AMI caller for asterisk
+    await originateCall(agentExt, target);
     return res.json({
       success: true,
       message: `GSM call initiated to ${target}`,
