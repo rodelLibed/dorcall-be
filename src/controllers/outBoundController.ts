@@ -38,7 +38,7 @@ import { callNumber, hangup } from '../gsmService';
 
 export const outboundCall = async (req: Request, res: Response) => {
   try {
-    const { target } = req.body;
+    const { target, agent } = req.body;
     console.log(req.body);
 
     if (!target) {
@@ -49,7 +49,7 @@ export const outboundCall = async (req: Request, res: Response) => {
     }
 
     // Directly call the GSM
-    callNumber(target);
+    callNumber(target, agent || undefined);
 
     return res.json({
       success: true,
@@ -78,9 +78,17 @@ export const hangupCall = async (req: AuthRequest, res: Response) => {
         .json({ success: false, message: 'agent is required' });
     }
 
-    const result = await amiService.hangupCallByAgent(agent);
+    let result: any = { success: true, message: 'No active AMI call to hang up' };
+    try {
+      result = await amiService.hangupCallByAgent(agent);
+    } catch (amiErr: any) {
+      console.warn('AMI hangup skipped:', amiErr.message);
+    }
 
-    return res.json({ success: true, message: 'Call hung up', data: result });
+    // Also hang up the GSM line
+    hangup();
+
+    return res.json({ success: true, message: 'Hangup sent', data: result });
   } catch (err: any) {
     console.error(err);
     return res.status(500).json({ success: false, message: err.message });

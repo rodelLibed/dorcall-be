@@ -14,6 +14,7 @@ import contactRoutes from './routes/contactRoutes';
 import outBoundRoutes from './routes/outBoundRoutes';
 import callSocketHandler from './websocket/callSocketHandler';
 import amiServices from './amiServices';
+import { setGsmSocket } from './gsmService';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.set('io', io);
 
 callSocketHandler(io);
 amiServices.setSocket(io);
+setGsmSocket(io);
 
 // Middleware
 app.use(
@@ -93,8 +95,8 @@ const startServer = async () => {
     // Connect to database
     await connectDatabase();
 
-    // Connect to Asterisk AMI (optional, comment out if not ready)
-    // await connectAMI();
+    // Connect to Asterisk AMI
+    await amiServices.connect();
 
     server.listen(PORT, () => {
       console.log(`🚀 DorCall Backend Server running on port ${PORT}`);

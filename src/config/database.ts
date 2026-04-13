@@ -7,19 +7,20 @@ import CustomerContact from '../models/CustomerContact';
 import PsEndpoint from '../models/PsEndpoint';
 import PsAuth from '../models/PsAuth';
 import PsAor from '../models/PsAor';
+import PsTransport from '../models/psTransport';
 import { setupAssociations } from '../models/associations';
 
 dotenv.config();
 
 const sequelize = new Sequelize({
-  database: process.env.DB_NAME || 'call_center',
+  database: process.env.DB_NAME || 'dorcall_db',
   username: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
   dialect: 'mysql',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  models: [Admin, CallLog, SmsLog, CustomerContact, PsEndpoint, PsAuth, PsAor],
+  models: [Admin, CallLog, SmsLog, CustomerContact, PsEndpoint, PsAuth, PsAor, PsTransport],
   pool: {
     max: 10,
     min: 0,
